@@ -21,84 +21,94 @@ import socket
 import re
 import struct
 
+# *********** CONSTANTS *********** #
+SUB_NET = "192.168.10."   # Subnet of LAN
 
-SUB_NET = "192.168.10."
-FAN_OUT_SEC = 5
-FAN_OUT_MIN = 100
-FAN_OUT_FIVEMIN = 300
-HASH_TABLE_SIZE = 262144
+OLD_ENTRY_TIME = 5        # Time value in minutes for stale table entry
+FAN_OUT_SEC = 5           # Fan out rate for per second
+FAN_OUT_MIN = 100         # Fan out rate for per minute
+FAN_OUT_FIVE_MIN = 300     # Fan out rate for per five minute
+HASH_TABLE_SIZE = 262144  # Size of hash table: (256 "IP's") * (1024 "Ports") = 262144 Total possible entries
 
+STALE_ENTRY = False
+CURRENT_ENTRY = True
+EMPTY_STRING = "Empty"
+ZERO_TIME = 0
+FIVE_MINUTES = 300
+
+PORT_MAX = 1023
+IP_MAX = 255
+
+PORT_MATH = 1024
+IP_MATH = 256
+
+# Enumerations for tuple
+CURRENT_OR_STALE = 0
+IPADDRESS_SOURCE = 1 
+IPADDRESS_DESTINATION = 2
+PORT_DESTINATION = 3
+TIME_STAMP = 4
+
+
+
+
+
+# Make Hash table of connections global
+# Each entry in the hash table is comprised of a tuple in regards to an attempted connection
+# Each tuple is of the form <boolean,string,string,integer,float> 1,2,3,4,5
+# 1) Boolean value representing .. True: Timestamp < 5 minutes .. False: Timestamp >= 5 minutes
+# 2) IPAddress of source 
+# 3) IPAddress of destination 
+# 4) Port number of destination
+# 5) Timestamp of last attempted connection
 hashTable = {}
 
-# Works
+# ****************************************************************************************************
+# Function : populateHashTable
+# Description : This function populates the hash table of all possible connections in the LAN.      
+# Input:   None
+# Returns: Nothing
+# Note:    1) Range of IP's in LAN: 108.168.10.0 - 108.168.10.255
+#          2) # TODO: update later to all ports 65536 ??? currently only 0 - 1023
+# ****************************************************************************************************
 def populateHashTable():
-    IPkeys = 0      # Range of IP's in LAN: 108.168.10.0 - 108.168.10.255
-    PortKeys = 0    # TODO: update later to all ports 65536 ??? currently only 0 - 1023
+    IPkeys = 0      # Index for IPAddress's
+    PortKeys = 0    # Index for Port's
    
-    for i in range(HASH_TABLE_SIZE): # Range = (256 "IP's") * (1024 "Ports") = 262144
-        hashTable[i] = (0,mapkeyToIp(str(IPkeys)),"Empty",PortKeys,0)
+    # Loop Through Table adding entries
+    for i in range(HASH_TABLE_SIZE): # Range = 262144
+        hashTable[i] = (STALE_ENTRY, mapkeyToIp(str(IPkeys)), EMPTY_STRING, PortKeys, ZERO_TIME)
 
-        if(PortKeys == 1023):
+        if(PortKeys == PORT_MAX):
             PortKeys = 0
             IPkeys += 1
-
         else:
             PortKeys += 1
 
-# Works
+
+# ****************************************************************************************************
+# Function : printHashTable
+# Description : This function prints the hashtable, ** mainly for testing purposes      
+# Input:   None
+# Returns: Nothing
+# Note:
+# ****************************************************************************************************
 def printHashTable():
     for i in range(HASH_TABLE_SIZE):
         print(hashTable[i])
 
 
-#******************* Portion from Sniffer lab03 ****************#
-
-# Ethernet layer frame parser
-# Capture each frame at this layer and dissect bytes in header based
-# off known frame header layout
-def ethernet_dissect(ethernet_data):
-    # First six characters / bytes destination address, "6s" for MAC address.
-    # Second six characters / bytes source address, "6s" for MAC address.
-    # Third two characters / bytes type, "H" unsigned short integer for protocol
-    dest_mac, src_mac, protocol = struct.unpack('!6s 6s H', ethernet_data[:14])
-    # Return Source & Destination MAC address's, Protocol, and the payload
-    # Note on Htons will convert protocol integers from host -> network byte order. Endian overcoming.
-    return mac_format(dest_mac), mac_format(src_mac), socket.htons(protocol), ethernet_data[14:]
-
-
-# Function to format MAC address from byte string to proper readable format
-def mac_format(mac):
-    # Map the raw passed in mac address string with format selected
-    mac = map('{:02x}'.format, mac)
-    # Convert string to all same upper case and append : for readability
-    return ':'.join(mac).upper()
-def ipv4_dissect(ip_data):
-    ip_protocol, source_ip, target_ip = struct.unpack('!9x B 2x 4s 4s', ip_data[:20])
-    return ip_protocol, ipv4_format(source_ip), ipv4_format(target_ip), ip_data[20:]
-
-
-# Format the data to strings and append dot for readability
-def ipv4_format(address):
-    return '.'.join(map(str, address))
-
-
-# TCP Packet : Parse the data portion of the packet
-# 1) Source Port : First 2 Bytes
-# 2) Destination Port : Second 2 Bytes
-def tcp_dissect(transport_data):
-    source_port, dest_port = struct.unpack('!HH', transport_data[:4])
-    return source_port, dest_port
-
-# UDP Packet : Parse the data portion of the packet
-# 1) Source Port : First 2 Bytes
-# 2) Destination Port : Second 2 Bytes
-def udp_dissect(transport_data):
-    source_port, dest_port = struct.unpack('!HH', transport_data[:4])
-    return source_port, dest_port
-
-
-
-#******************* Set Up Threads Function *******************#
+# ****************************************************************************************************
+# Function : initiateThreads
+# Description : This function creates the 3 threads needed for this program. 
+#               1) sniff_traffic_thread:  Thread to capture all packet traffic on LAN
+#               2) fan_out_rate_thread:   Thread to calculate fan out rate and display in std_out
+#               3) table_time_out_thread: Thread to constantly cycle through hash table checking table 
+#                                         entry timestamps, setting boolean value of tuple appropriatly
+# Input:   None
+# Returns: Nothing
+# Note: Set Up Threads Function
+# ****************************************************************************************************
 def initiateThreads():
     # Create Threads 
     sniff_traffic_thread = threading.Thread(target=snifferThread, args=("TH1",)) 
@@ -120,7 +130,17 @@ def initiateThreads():
     print("Program exit.")
 
 
-#******************* Thread 1 : Sniff Traffic  Functions *******************#
+
+
+# ----------------------------- Thread 1 : Sniff Traffic Functions ----------------------------------#
+
+# ****************************************************************************************************
+# Function : snifferThread : Entry point for thread 1!!
+# Description : This function is logic behind sniffing traffic on the LAN .. TCP and UDP      
+# Input:   Dummy string saying thread1. Can remove later...
+# Returns: Nothing
+# Note: TODO: Needs work !! Correctly sniffs traffic but doesnt yet populate the table 
+# ****************************************************************************************************
 def snifferThread(num): 
 
     print("Inside Sniffer: {}".format(num))
@@ -151,6 +171,12 @@ def snifferThread(num):
                 src_port, dest_port = tcp_dissect(transport_data)
                 # Print desired format 
                 #print("TCP --> source mac:{0}, dest mac:{1}, source ip:{2}, dest ip:{3}, protocol:{4}, source port:{5}, ""dest port:{6}".format(src_mac, dest_mac, source_ip, dest_ip, ip_protocol, src_port, dest_port))
+                
+                # ***** TODO ******
+                # TEST THIS , function below logic works but havent run with live scan
+                updateTableEntry(source_ip, dest_ip, dest_port)
+
+
 
             # UDP Protocol within IP4 Packet
             if ip_protocol == 17:
@@ -158,99 +184,253 @@ def snifferThread(num):
                 src_port, dest_port = udp_dissect(transport_data)
                 # Print desired format
                 #print("UDP --> source mac:{0}, dest mac:{1}, source ip:{2}, dest ip:{3}, protocol:{4}, source port:{5}, ""dest port:{6}".format(src_mac, dest_mac, source_ip, dest_ip, ip_protocol, src_port, dest_port))
+                
+                # ***** TODO ******
+                # TEST THIS , function below logic works but havent run with live scan
+                updateTableEntry(source_ip, dest_ip, dest_port)
 
 
-# Function adds new entry to table if entry not in table 
-def newTableEntry(entry):
+# ****************************************************************************************************
+# Function : ethernet_dissect : Ethernet layer frame parser
+# Description : This function parses packet into destination mac address, source mac address, and protocol
+#               Capture each frame at this layer and dissect bytes in header based
+#               First six characters / bytes destination address, "6s" for MAC address.
+#               Second six characters / bytes source address, "6s" for MAC address.
+#               Third two characters / bytes type, "H" unsigned short integer for protocol             
+# Input:   1) Captured packet raw
+# Returns: 1) Destination mac address
+#          2) Source mac address
+#          3) Protocol in byte order, Endian overcoming
+#          4) Remaining data which is the payload
+# Note: Works!
+# ****************************************************************************************************
+def ethernet_dissect(ethernet_data):
+    dest_mac, src_mac, protocol = struct.unpack('!6s 6s H', ethernet_data[:14])
+    return mac_format(dest_mac), mac_format(src_mac), socket.htons(protocol), ethernet_data[14:]
 
-    # Not found in list, so add to list
-    if checkInTable(entry):
-        tup.append(entry)
+
+# ****************************************************************************************************
+# Function : mac_format 
+# Description : This function maps the raw passed in mac address string with format selected and  
+#               converts string to all same upper case and append : for readability  
+# Input:   1) Mac address
+# Returns: 1) Readable Mac address
+# Note: Works!
+# ****************************************************************************************************
+def mac_format(mac):
+    mac = map('{:02x}'.format, mac)
+    return ':'.join(mac).upper()
+
+
+# ****************************************************************************************************
+# Function : ipv4_dissect 
+# Description : This function parses IPV4 captured packet header for IP: protocol, source, destination  
+# Input:   1) Network Layer header portion
+# Returns: 1) IP protocol
+#          2) IP source address
+#          3) IP destiantion address
+# Note: Works!
+# ****************************************************************************************************
+def ipv4_dissect(ip_data):
+    ip_protocol, source_ip, target_ip = struct.unpack('!9x B 2x 4s 4s', ip_data[:20])
+    return ip_protocol, ipv4_format(source_ip), ipv4_format(target_ip), ip_data[20:]
+
+
+# ****************************************************************************************************
+# Function : ipv4_format
+# Description : This function formats the data to strings and append dot for readability
+# Input:   1) Raw Data from packet
+# Returns: 1) Readable format
+# Note: Works!
+# ****************************************************************************************************
+def ipv4_format(address):
+    return '.'.join(map(str, address))
+
+
+# ****************************************************************************************************
+# Function :  tcp_dissect
+# Description : This function parses TCP header for source and destination port number values
+# Input:   1) Transport Data payload IE Port numbers
+# Returns: 1) Source Port : First 2 Bytes
+#          2) Destination Port : Second 2 Bytes
+# Note: Works!
+# ****************************************************************************************************
+def tcp_dissect(transport_data):
+    source_port, dest_port = struct.unpack('!HH', transport_data[:4])
+    return source_port, dest_port
+
+
+# ****************************************************************************************************
+# Function : udp_dissect
+# Description : This function parses a UDP header for source and destination port number values
+# Input:   1) Transport Data payload IE Port numbers
+# Returns: 1) Source Port : First 2 Bytes
+#          2) Destination Port : Second 2 Bytes
+# Note: Works!
+# ****************************************************************************************************
+def udp_dissect(transport_data):
+    source_port, dest_port = struct.unpack('!HH', transport_data[:4])
+    return source_port, dest_port
+
+
+# ****************************************************************************************************
+# Function :  updateTableEntry
+# Description : This function updates table entry based on captured traffic between source and destination
+# Input:   1) IP Source
+#          2) IP Destination
+#          3) Port Destination
+# Returns: Nothing
+# Note: Works!
+# ****************************************************************************************************
+def updateTableEntry(ip_src, ip_dest, port_dest):
     
+    # Get correct index to update
+    table_index = mapToIndex(ip_src, port_dest)
 
-#******************* Thread 2 : Fan Out Rate   Functions *******************#
+    # Tuples are immutable in python 
+    temp = list(hashTable[table_index])
+    temp[CURRENT_OR_STALE] = CURRENT_ENTRY
+    temp[IPADDRESS_DESTINATION] = ip_dest
+    temp[TIME_STAMP] = time.time()
+ 
+    # Update table
+    hashTable[table_index] = tuple(temp)
+
+
+
+
+# ----------------------------- Thread 2 : Fan Out Rate Functions -----------------------------------#
+
+# ****************************************************************************************************
+# Function : fannerThread : Entry point for thread 2!!
+# Description : This function is logic behind calculating fan out rate calculations.       
+# Input:   Dummy string saying thread2. Can remove later...
+# Returns: Nothing
+# Note: TODO: Needs work !! 
+# ****************************************************************************************************
 def fannerThread(num): 
-    print("Inside Fanner: {}".format(num))
-    fannerOutput(5,100,300,"192.169.10.45")
+    print("Inside Fanner: {}".format(num))  # Dummy print
+    fannerOutput(5,100,300,"192.169.10.45") # Dummy test values
 
+
+# ****************************************************************************************************
+# Function : fannerOutput : 
+# Description : This function displays calculations for fan out rate of newly detected port scanner      
+# Input:   1) Display value for Second
+#          2) Display value for Minute
+#          3) Display value for Five minutes
+#          4) Display value for IPAddress
+# Returns: Nothing
+# Note: None
+# ****************************************************************************************************
 def fannerOutput(second, minute, fiveminute, IPAddress):
     print("Port scanner detected on source IP {} ".format(IPAddress))
     print("Avg fan-out per second: {}, Avg fan-out per min: {}, Avg fan-out per 5min: {}".format(second,minute,fiveminute))
 
-#******************* Thread 3 : Table Time Out Functions *******************#
+
+
+
+# ----------------------------- Thread 3 : Table Time Out Functions ---------------------------------#
+
+# ****************************************************************************************************
+# Function : timerThread 
+# Description : This function is the logic behind searching the hashtable and setting boolean value of
+#               tuple for entries appropriatly based on timestamps greater than 5 minutes.
+# Input:   
+# Returns: Nothing yet
+# Note: TODO Needs logical implement!!
+# ****************************************************************************************************
 def timerThread():
     print("Inside Timer: {}".format(num))
 
+
+# ****************************************************************************************************
+# Function : checkTimeOutTableEntry 
+# Description : This function physically checks the table tuple entries timestamp value 
+# Input:   
+# Returns: Nothing yet
+# Note: TODO Needs Testing!!
+# ****************************************************************************************************
 def checkTimeOutTableEntry(entry):
-    current_time = time.time()
+    
+    # Loop through table, get current time ,get timestamp in table
+    for i in range(HASH_TABLE_SIZE):
+        current_time = time.time()
+        entry_time = hashTable[i][TIME_STAMP]
 
-def deleteTableEntry():
-    print("")
+        # If determine stale entry, which is table entry greater than five minutes
+        # Zeroize entry back to state when it was populated at beginning of program
+        if((current_time - entry_time) > OLD_ENTRY_TIME):
+            hashTable[i][CURRENT_OR_STALE] = STALE_ENTRY
+            hashTable[i][IPADDRESS_DESTINATION] = EMPTY_STRING
+            hashTable[i][TIME_STAMP] = ZERO_TIME
 
-def checkInTable(entry):
 
-    # Start off assuming entry is not in list
-    found = False
-"""
-    # Check if entry exists in table 
-    for tup in first_contact_list:
-        if ((tup[0] == entry[0]) and (tup[1] == entry[1]) and (tup[2] == entry[2])):
-            found = True
-            return found
-    return found 
-"""
 
-# Works
+
+# ----------------------------------- Common Helper Functions ---------------------------------------#
+
+# ****************************************************************************************************
+# Function : mapkeyToIp 
+# Description : This function maps the key value to an IPaddress
+# Input:   1) Key value range 0 - 255
+# Returns: 1) Full IPAddress 
+# Note: Works, Logic verified, Example: Input = 108.168.10.1 , Returns 1
+# ****************************************************************************************************
 def mapkeyToIp(key):
     prefix = SUB_NET
     IPAddress = prefix + key
     return IPAddress
 
-# Works
+
+# ****************************************************************************************************
+# Function : mapIpToKey 
+# Description : This function maps the IPaddress to a key 
+# Input:   1) IPaddress range 108.168.10.0 - 108.168.10.255
+# Returns: 1) Key value
+# Note: Works, Logic verified, Example: Input = 1 , Returns 108.168.10.1 , 
+# ****************************************************************************************************
 def mapIpToKey(IPAddress):
     postfix = IPAddress[11:]
     return postfix
 
-# Function to delete first contact in table older than 5 minutes
-def firstContactTimeElapse(index):
 
-    # No entry for this source IP address
-    # Return early 
-    if hashTable[index][0] == 0:
-        return 
+# ****************************************************************************************************
+# Function : mapToIndex 
+# Description : This function maps the new table entry to the correct index in the hashtable
+# Input:   1) IP address of source
+#          2) Port number of destination
+# Returns: 1) Index in hashtable
+# Note: Works !!
+# ****************************************************************************************************
+def mapToIndex(ip_src, port_dest):
 
-    # Get difference in time current minus table entry
-    time_difference = time.time() - hashTable[index][4]
+    index = int(mapIpToKey(ip_src))
+    if index == 0:
+        return port_dest
 
-    # If difference is greater or equal to 5 minutes
-    # Zero out the entry 
-    if time_difference >= 300.0:
-        hashTable[index][0] = 0
-        hashTable[index][2] = ""
-        hashTable[index][3] = ""
-        hashTable[index][4] = 0
-
+    if index == 1:
+        return PORT_MATH + port_dest
+    
+    if index > 1:
+        return (PORT_MATH * index) + port_dest
 
 
 
+
+# ---------------------------------------- Main Function --------------------------------------------#
 
 # ****************************************************************************************************
 # Function : main
-#
-# Description : This function
-#
-# Input:   1) 
-#  
-#
+# Description : This function ...
+# Input:   None
 # Returns: Nothing
-#
 # **************************************************************************************************** 
 def main():
 
-    populateHashTable()
+    populateHashTable()     
     printHashTable()
-
-
+    
 
 # Program entry 
 if __name__ == "__main__": 

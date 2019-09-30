@@ -338,15 +338,17 @@ def fannerOutput(second, minute, fiveminute, IPAddress):
 #               tuple for entries appropriatly based on timestamps greater than 5 minutes.
 # Input:   
 # Returns: Nothing yet
-# Note: TODO Needs logical implement!!
+# Note: TODO Needs Testing!!
 # ****************************************************************************************************
 def timerThread():
     print("Inside Timer: {}".format(num))
+    checkTimeOutTableEntry()
 
 
 # ****************************************************************************************************
 # Function : checkTimeOutTableEntry 
 # Description : This function physically checks the table tuple entries timestamp value 
+#               will zeroize entry greater than 5 minutes per instructions HW3
 # Input:   Nothing
 # Returns: Nothing 
 # Note: TODO Needs Testing!!

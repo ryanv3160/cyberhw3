@@ -1,0 +1,5 @@
+A report that describes code, your LAN setup, and also screenshots of your results for each waiting time (5 total). 
+Your report must include a discussion section, where you interpret your results. 
+For example, why you did or did not detect the port-scanner. 
+You must also describe your new assumptions that are not mentioned here.
+There's no template for the report, but readability and appropriate formatting of the report will also affect your grade. 

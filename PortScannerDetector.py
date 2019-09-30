@@ -347,11 +347,11 @@ def timerThread():
 # ****************************************************************************************************
 # Function : checkTimeOutTableEntry 
 # Description : This function physically checks the table tuple entries timestamp value 
-# Input:   
-# Returns: Nothing yet
+# Input:   Nothing
+# Returns: Nothing 
 # Note: TODO Needs Testing!!
 # ****************************************************************************************************
-def checkTimeOutTableEntry(entry):
+def checkTimeOutTableEntry():
     
     # Loop through table, get current time ,get timestamp in table
     for i in range(HASH_TABLE_SIZE):
@@ -361,9 +361,15 @@ def checkTimeOutTableEntry(entry):
         # If determine stale entry, which is table entry greater than five minutes
         # Zeroize entry back to state when it was populated at beginning of program
         if((current_time - entry_time) > OLD_ENTRY_TIME):
-            hashTable[i][CURRENT_OR_STALE] = STALE_ENTRY
-            hashTable[i][IPADDRESS_DESTINATION] = EMPTY_STRING
-            hashTable[i][TIME_STAMP] = ZERO_TIME
+            
+            # Tuples are immutable in python 
+            temp = list(hashTable[i])
+            temp[CURRENT_OR_STALE] = STALE_ENTRY
+            temp[IPADDRESS_DESTINATION] = EMPTY_STRING
+            temp[TIME_STAMP] = ZERO_TIME
+ 
+            # Update table
+            hashTable[i] = tuple(temp)
 
 
 

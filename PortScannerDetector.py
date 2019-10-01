@@ -310,6 +310,7 @@ def updateTableEntry(ip_src, ip_dest, port_dest):
 # ****************************************************************************************************
 def fannerThread(num): 
     print("Inside Fanner: {}".format(num))  # Dummy print
+    detection_list = fannerCalculation()
     fannerOutput(5,100,300,"192.169.10.45") # Dummy test values
 
 
@@ -328,6 +329,37 @@ def fannerOutput(second, minute, fiveminute, IPAddress):
     print("Avg fan-out per second: {}, Avg fan-out per min: {}, Avg fan-out per 5min: {}".format(second,minute,fiveminute))
 
 
+#****************************************************************************************************
+# LOGIC BEHIND CHECKING THE TABLE FOR ENTRIES THAT TRIGGER AN IP ADDRESS AS A SCANNER 
+# TODO: NEEDS WORK 
+def fannerSecond(ipAddress, currentTime, totalTime)
+    avg_time = totalTime/PORT_MATH
+def fannerMinute(ipAddress, currentTime, totalTime)
+def fannerFiveMinute(ipAddress, currentTime, totalTime)
+
+def fannerCalculation()
+{
+    # Initial time prior to loop
+    current_time = time.time()
+    time_stamp = 0 
+    scanner_detection_list = []
+
+    # Loop Through Table adding entries
+    for i in range(HASH_TABLE_SIZE): # Range = 262144
+        
+        # Check for first index divide by zero 
+        if i != 0:
+            # Determine when we move to next IPaddress 
+            if PORT_MAX%i == 0: 
+                fannerSecond(hashTable[i][IPADDRESS_SOURCE], currentTime, totalTime)
+                fannerMinute(hashTable[i][IPADDRESS_SOURCE], currentTime, totalTime)
+                fannerFiveMinute(hashTable[i][IPADDRESS_SOURCE], currentTime, totalTime)
+                # Time for when we advance to next IPaddy
+                current_time = time.time()
+        
+        time_stamp += hashTable[i][TIME_STAMP]
+}
+#****************************************************************************************************
 
 
 # ----------------------------- Thread 3 : Table Time Out Functions ---------------------------------#

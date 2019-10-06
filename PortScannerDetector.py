@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # ****************************************************************************************************
 # Name: Ryan Vacca
 #       Matthew Moltzaou
@@ -27,7 +29,7 @@ SUB_NET = "192.168.10."   # Subnet of LAN
 OLD_ENTRY_TIME = 5        # Time value in minutes for stale table entry
 FAN_OUT_SEC = 5           # Fan out rate for per second
 FAN_OUT_MIN = 100         # Fan out rate for per minute
-FAN_OUT_FIVE_MIN = 300     # Fan out rate for per five minute
+FAN_OUT_FIVE_MIN = 300    # Fan out rate for per five minute
 HASH_TABLE_SIZE = 262144  # Size of hash table: (256 "IP's") * (1024 "Ports") = 262144 Total possible entries
 
 STALE_ENTRY = False
@@ -48,10 +50,6 @@ IPADDRESS_SOURCE = 1
 IPADDRESS_DESTINATION = 2
 PORT_DESTINATION = 3
 TIME_STAMP = 4
-
-
-
-
 
 # Make Hash table of connections global
 # Each entry in the hash table is comprised of a tuple in regards to an attempted connection
@@ -74,11 +72,11 @@ hashTable = {}
 def populateHashTable():
     IPkeys = 0      # Index for IPAddress's
     PortKeys = 0    # Index for Port's
-   
+    
     # Loop Through Table adding entries
     for i in range(HASH_TABLE_SIZE): # Range = 262144
         hashTable[i] = (STALE_ENTRY, mapkeyToIp(str(IPkeys)), EMPTY_STRING, PortKeys, ZERO_TIME)
-
+        
         if(PortKeys == PORT_MAX):
             PortKeys = 0
             IPkeys += 1
@@ -130,8 +128,6 @@ def initiateThreads():
     print("Program exit.")
 
 
-
-
 # ----------------------------- Thread 1 : Sniff Traffic Functions ----------------------------------#
 
 # ****************************************************************************************************
@@ -142,29 +138,29 @@ def initiateThreads():
 # Note: TODO: Needs work !! Correctly sniffs traffic but doesnt yet populate the table 
 # ****************************************************************************************************
 def snifferThread(num): 
-
+    
     print("Inside Sniffer: {}".format(num))
-
+    
     # Create a Raw Socket
     packets = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(0x0800))
-
+    
     # Main loop to listen for packets on LAN
     while True:
-
+        
         # Max buffer size that can be defined
         # Return 1) ethernet data which is what is in the packet to which we will do
         # analysis on, We do not us address for this lab, implement dummy catcher
         ethernet_data, address = packets.recvfrom(65536)
-
+        
         # Call function to parse returned frame
         dest_mac, src_mac, protocol, ip_data = ethernet_dissect(ethernet_data)
-
+        
         # Exterior Gateway Protocol IP4 packet, which we are using.
         if protocol == 8:
-
+            
             # Call function to parse IPV4 packet
             ip_protocol, source_ip, dest_ip, transport_data = ipv4_dissect(ip_data)
-
+            
             # TCP Protocol within IP4 Packet
             if ip_protocol == 6:
                 # TCP Parse Source and Destination Port portion of packet
@@ -175,9 +171,7 @@ def snifferThread(num):
                 # ***** TODO ******
                 # TEST THIS , function below logic works but havent run with live scan
                 updateTableEntry(source_ip, dest_ip, dest_port)
-
-
-
+            
             # UDP Protocol within IP4 Packet
             if ip_protocol == 17:
                 # UDP Parse Source and Destination Port portion of packet
@@ -297,8 +291,6 @@ def updateTableEntry(ip_src, ip_dest, port_dest):
     hashTable[table_index] = tuple(temp)
 
 
-
-
 # ----------------------------- Thread 2 : Fan Out Rate Functions -----------------------------------#
 
 # ****************************************************************************************************
@@ -332,13 +324,14 @@ def fannerOutput(second, minute, fiveminute, IPAddress):
 #****************************************************************************************************
 # LOGIC BEHIND CHECKING THE TABLE FOR ENTRIES THAT TRIGGER AN IP ADDRESS AS A SCANNER 
 # TODO: NEEDS WORK 
-def fannerSecond(ipAddress, currentTime, totalTime)
+def fannerSecond(ipAddress, currentTime, totalTime):
     avg_time = totalTime/PORT_MATH
-def fannerMinute(ipAddress, currentTime, totalTime)
-def fannerFiveMinute(ipAddress, currentTime, totalTime)
 
-def fannerCalculation()
-{
+#def fannerMinute(ipAddress, currentTime, totalTime)
+#def fannerFiveMinute(ipAddress, currentTime, totalTime)
+
+def fannerCalculation():
+    
     # Initial time prior to loop
     current_time = time.time()
     time_stamp = 0 
@@ -358,7 +351,7 @@ def fannerCalculation()
                 current_time = time.time()
         
         time_stamp += hashTable[i][TIME_STAMP]
-}
+
 #****************************************************************************************************
 
 
@@ -404,9 +397,6 @@ def checkTimeOutTableEntry():
  
             # Update table
             hashTable[i] = tuple(temp)
-
-
-
 
 # ----------------------------------- Common Helper Functions ---------------------------------------#
 
@@ -456,8 +446,6 @@ def mapToIndex(ip_src, port_dest):
         return (PORT_MATH * index) + port_dest
 
 
-
-
 # ---------------------------------------- Main Function --------------------------------------------#
 
 # ****************************************************************************************************
@@ -467,22 +455,10 @@ def mapToIndex(ip_src, port_dest):
 # Returns: Nothing
 # **************************************************************************************************** 
 def main():
-
     populateHashTable()     
     printHashTable()
-    
 
 # Program entry 
 if __name__ == "__main__": 
     main()
-
-
-
-
-
-
-
-
-
-
 

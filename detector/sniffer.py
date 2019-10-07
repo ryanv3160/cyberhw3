@@ -7,11 +7,13 @@ _packets = psocket.get_promiscuous_socket()
 
 # This function sniffs data and immediately puts it on a queue to be processed. It does this
 # so that it doesn't miss other incoming packets while processing the data or while waiting
-# to receive the table from another channel.
+# to receive the table from another channel. Note that in some circumstances packets will still
+# not make it though. This could potentially happen if the OS doesn't assign this program enough
+# thread time due to other bloated programs or general low performance. If a significant number
+# of packets aren't making it, consider 1) whether something is taking too long in a critical
+# section and 2) whether or not a second sniffer thread would work. In an early test case, this
+# scaled well.
 # 
-# Note: not all packets will be received, but it allows us to capture x2 the number of
-# packets from before. It may also be beneficial to start two sniffers at once. When I tested
-# that, I got an extra 100 packets. Is the recvfrom method atomic as to prevent duplicates?
 def sniff(data_queue): 
     
     while True:

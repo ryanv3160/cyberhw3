@@ -1,9 +1,9 @@
 import socket
+import psocket
 from struct import unpack
 from datetime import datetime
     
-# Note: AF_PACKET does not work on Mac, but works on Linux
-_packets = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(0x0800))
+_packets = psocket.get_promiscuous_socket()
 
 # This function sniffs data and immediately puts it on a queue to be processed. It does this
 # so that it doesn't miss other incoming packets while processing the data or while waiting
@@ -16,9 +16,6 @@ def sniff(data_queue):
     
     while True:
         
-        # Does this only sniff packets incoming to the host? If so, that might mean
-        # storing the destination ip may not be necessary. At the moment, the destination
-        # ip in the key isn't ever referenced. I think it can be removed. TODO: Test this
         ethernet_data, _ = _packets.recvfrom(65536)
         data_queue.put(ethernet_data)
 
@@ -37,8 +34,14 @@ def dissect(data_queue, channel):
                 icmp_type, icmp_code = icmp_dissect(transport_data)
                 # do nothing..
             
-            if ip_protocol == IPProtocol.TCP:
-                src_port, dst_port = tcp_dissect(transport_data)
+            elif ip_protocol == IPProtocol.TCP:
+                src_port, dst_port, flags = tcp_dissect(transport_data)
+                
+                # port scanners will send the SYN flag
+                # note: I think 0xC2 is valid as well?
+                if flags | 0x02 != flags:
+                    continue
+                
                 table = channel.get()
                 key = (src_ip, dst_ip, dst_port)
                 if key not in table:
@@ -84,8 +87,9 @@ def icmp_dissect(transport_data):
     return icmp_type, code
 
 def tcp_dissect(transport_data):
-    source_port, dst_port = unpack('!HH', transport_data[:4])
-    return source_port, dst_port
+    # skipping over the seq_num and ack_num in order to inspect the flags
+    source_port, dst_port, flags = unpack('!HH 8x 1x B', transport_data[:14])
+    return source_port, dst_port, flags
 
 def udp_dissect(transport_data):
     source_port, dst_port = unpack('!HH', transport_data[:4])

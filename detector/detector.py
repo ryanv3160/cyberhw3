@@ -1,4 +1,3 @@
-import sys
 from datetime import datetime
 
 _caught_ips = {}
@@ -55,15 +54,15 @@ def get_counts(table, ip_connections):
 # waits a minute for already-reported ips to avoid spam
 def report_ip(ip, avg_per_sec, avg_per_min, total_count):
     
-    sys.stdout.flush()
-    if ip not in _caught_ips:
-        print("port scanner detected on source IP %s" % ip)
-    else:
+    if ip in _caught_ips:
         elapsed_min = int((_caught_ips[ip] - datetime.now()).total_seconds() / 60)
         if elapsed_min == 0:
             return
     
+    message = (
+        "port scanner detected on source IP %s\n"
+        "avg fan-out per second: %s, avg fan-out per min: %s, fan-out per 5 min: %s")
+    print(message % (ip, avg_per_sec, avg_per_min, total_count))
     _caught_ips[ip] = datetime.now()
-    print("avg fan-out per second: %s, avg fan-out per min: %s, fan-out per 5 min: %s" % 
-            (avg_per_sec, avg_per_min, total_count))
+
 

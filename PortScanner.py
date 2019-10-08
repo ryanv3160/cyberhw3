@@ -206,7 +206,7 @@ def main():
             # Use random port on this machine
             srcport=5005
             # Bind to IP address on this machine
-            udp_rec.bind(("192.168.0.33", srcport))
+            udp_rec.bind((sys.argv[1], srcport))
 
         # Catch exception if IP address of this machine cannot be binded to and disable UDP scanner
         except:

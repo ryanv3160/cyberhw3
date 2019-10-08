@@ -39,7 +39,7 @@ def main():
             size = len(table)
             if size != num:
                 more_or_less = "more" if size > num else "less"
-                print("we now have %d %s entries (total = %d)" % (size - num, more_or_less, size))
+                print("we now have %d %s entries (total = %d)" % (abs(size - num), more_or_less, size))
                 num = size
             channel.put(table)
         

@@ -58,11 +58,20 @@ def report_ip(ip, avg_per_sec, avg_per_min, total_count):
         elapsed_min = int((_caught_ips[ip] - datetime.now()).total_seconds() / 60)
         if elapsed_min == 0:
             return
+
+    reason = ""
+    if avg_per_sec > 5:
+        reason = "avg fan-out per second exceeds 5" 
+    elif avg_per_min > 100:
+        reason = "avg fan-out per minute exceeds 5" 
+    elif total_count > 300:
+        reason = "number of first-connections in the last 5 minutes exceeds 300" 
     
     message = (
         "port scanner detected on source IP %s\n"
-        "avg fan-out per second: %s, avg fan-out per min: %s, fan-out per 5 min: %s")
-    print(message % (ip, avg_per_sec, avg_per_min, total_count))
+        "avg fan-out per second: %s, avg fan-out per min: %s, fan-out per 5 min: %s\n"
+        "reason: %s")
+    print(message % (ip, avg_per_sec, avg_per_min, total_count, reason))
     _caught_ips[ip] = datetime.now()
 
 

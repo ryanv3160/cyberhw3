@@ -76,32 +76,6 @@ def errorCheckInput(IP4Address):
 
 
 # ****************************************************************************************************
-# Function : nextIpAddress 
-#
-# Description : Function to advance old IP address that has just had all ports scanned. We 
-#               are ready for the next one. Logic icreases IPaddress by 1 until max "192.168.10.255"
-#               then returns to "192.168.10.0" and contiues this cycle. 
-#
-# Input:   1) Old IPAddress to advance
-#          2) Current index of "192.168.0.0"
-#
-# Returns: 1) True: if data is recieved
-#          2) False: if data is empty
-#
-# Note: "192.168.10.0" --> "192.168.10.255" --> "192.168.10.0" ...Repeat ...
-# ****************************************************************************************************
-def nextIpAddress(IP4Address, IPIndex): 
-    if IP4Address == "192.168.10.255":
-        IP4Address = "192.168.10.0"
-        IPIndex = 0
-        return IP4Address, IPIndex
-    else:
-        IPIndex +=1
-        IP4Address = "192.168.10." + str(IPIndex)
-        return IP4Address, IPIndex
-
-
-# ****************************************************************************************************
 # Function : main
 #
 # Description : This function serves as the program entry point. The function begins by asking the
